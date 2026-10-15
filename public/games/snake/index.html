@@ -1,0 +1,67 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  html, body { margin: 0; height: 100%; background: #111; display: flex; align-items: center; justify-content: center; font-family: sans-serif; color: #fff; }
+  canvas { background: #1a2e1a; max-width: 100%; max-height: 90vh; }
+  #hud { position: absolute; top: 8px; left: 12px; font-size: 18px; }
+</style>
+</head>
+<body>
+<div id="hud">คะแนน: 0</div>
+<canvas id="c" width="400" height="400"></canvas>
+<script>
+  const c = document.getElementById('c'), ctx = c.getContext('2d');
+  const N = 20, S = c.width / N;
+  let snake, dir, nextDir, food, score, over;
+
+  function reset() {
+    snake = [{ x: 10, y: 10 }, { x: 9, y: 10 }, { x: 8, y: 10 }];
+    dir = nextDir = { x: 1, y: 0 };
+    score = 0; over = false;
+    placeFood();
+  }
+  function placeFood() {
+    do { food = { x: Math.floor(Math.random() * N), y: Math.floor(Math.random() * N) }; }
+    while (snake.some((p) => p.x === food.x && p.y === food.y));
+  }
+  function step() {
+    if (over) return;
+    dir = nextDir;
+    const head = { x: (snake[0].x + dir.x + N) % N, y: (snake[0].y + dir.y + N) % N };
+    if (snake.some((p) => p.x === head.x && p.y === head.y)) { over = true; return; }
+    snake.unshift(head);
+    if (head.x === food.x && head.y === food.y) { score++; placeFood(); } else snake.pop();
+  }
+  function draw() {
+    ctx.fillStyle = '#1a2e1a'; ctx.fillRect(0, 0, c.width, c.height);
+    ctx.fillStyle = '#ef4444'; ctx.fillRect(food.x * S + 2, food.y * S + 2, S - 4, S - 4);
+    snake.forEach((p, i) => { ctx.fillStyle = i ? '#22c55e' : '#86efac'; ctx.fillRect(p.x * S + 1, p.y * S + 1, S - 2, S - 2); });
+    document.getElementById('hud').textContent = 'คะแนน: ' + score;
+    if (over) {
+      ctx.fillStyle = 'rgba(0,0,0,.6)'; ctx.fillRect(0, 0, c.width, c.height);
+      ctx.fillStyle = '#fff'; ctx.font = '28px sans-serif'; ctx.textAlign = 'center';
+      ctx.fillText('Game Over', c.width / 2, c.height / 2 - 10);
+      ctx.font = '16px sans-serif'; ctx.fillText('กด Space เพื่อเล่นใหม่', c.width / 2, c.height / 2 + 20);
+    }
+  }
+  const keys = { ArrowUp: [0, -1], ArrowDown: [0, 1], ArrowLeft: [-1, 0], ArrowRight: [1, 0], w: [0, -1], s: [0, 1], a: [-1, 0], d: [1, 0] };
+  addEventListener('keydown', (e) => {
+    if (e.key === ' ' && over) reset();
+    const k = keys[e.key];
+    if (k && (k[0] !== -dir.x || k[1] !== -dir.y)) nextDir = { x: k[0], y: k[1] };
+    if (k || e.key === ' ') e.preventDefault();
+  });
+  let tx, ty;
+  addEventListener('touchstart', (e) => { tx = e.touches[0].clientX; ty = e.touches[0].clientY; if (over) reset(); });
+  addEventListener('touchend', (e) => {
+    const dx = e.changedTouches[0].clientX - tx, dy = e.changedTouches[0].clientY - ty;
+    const k = Math.abs(dx) > Math.abs(dy) ? [Math.sign(dx), 0] : [0, Math.sign(dy)];
+    if ((k[0] || k[1]) && (k[0] !== -dir.x || k[1] !== -dir.y)) nextDir = { x: k[0], y: k[1] };
+  });
+  reset();
+  setInterval(() => { step(); draw(); }, 110);
+</script>
+</body>
+</html>

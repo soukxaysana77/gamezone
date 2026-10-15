@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>GameZone - เล่นเกมออนไลน์</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <header>
+    <a class="logo" href="/">GAME<span>ZONE</span></a>
+    <nav></nav>
+  </header>
+  <main>
+    <h2>🎮 เกมทั้งหมด</h2>
+    <div class="grid" id="games"></div>
+  </main>
+  <script src="/common.js"></script>
+  <script>
+    (async () => {
+      const user = await renderHeader();
+      const games = await api('/api/games');
+      const grid = document.getElementById('games');
+      for (const g of games) {
+        const card = document.createElement('div');
+        card.className = 'card';
+        card.innerHTML = `
+          <div class="thumb" style="background:${g.color}">${g.icon}</div>
+          <div class="info"><h3>${g.title}</h3><p>${g.desc}</p></div>`;
+        card.onclick = () => {
+          location.href = user ? `/play.html?game=${g.id}` : `/login.html?next=/play.html?game=${g.id}`;
+        };
+        grid.appendChild(card);
+      }
+    })();
+  </script>
+</body>
+</html>

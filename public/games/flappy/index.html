@@ -1,0 +1,53 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  html, body { margin: 0; height: 100%; background: #111; display: flex; align-items: center; justify-content: center; }
+  canvas { background: #7dd3fc; max-width: 100%; max-height: 95vh; cursor: pointer; }
+</style>
+</head>
+<body>
+<canvas id="c" width="400" height="300"></canvas>
+<script>
+  const c = document.getElementById('c'), ctx = c.getContext('2d');
+  const GAP = 95, PIPE_W = 50, SPEED = 2.2;
+  let bird, pipes, score, best = 0, state, frame;
+
+  function reset() { bird = { y: 150, v: 0 }; pipes = []; score = 0; frame = 0; state = 'ready'; }
+  function flap() {
+    if (state === 'over') return reset();
+    state = 'play';
+    bird.v = -5.2;
+  }
+  function update() {
+    if (state !== 'play') return;
+    frame++;
+    bird.v += 0.3; bird.y += bird.v;
+    if (frame % 90 === 0) pipes.push({ x: c.width, top: 30 + Math.random() * (c.height - GAP - 60), scored: false });
+    pipes.forEach((p) => (p.x -= SPEED));
+    pipes = pipes.filter((p) => p.x > -PIPE_W);
+    for (const p of pipes) {
+      if (!p.scored && p.x + PIPE_W < 80) { p.scored = true; score++; best = Math.max(best, score); }
+      if (80 + 10 > p.x && 80 - 10 < p.x + PIPE_W && (bird.y - 10 < p.top || bird.y + 10 > p.top + GAP)) state = 'over';
+    }
+    if (bird.y > c.height - 10 || bird.y < 0) state = 'over';
+  }
+  function draw() {
+    ctx.fillStyle = '#7dd3fc'; ctx.fillRect(0, 0, c.width, c.height);
+    ctx.fillStyle = '#16a34a';
+    for (const p of pipes) { ctx.fillRect(p.x, 0, PIPE_W, p.top); ctx.fillRect(p.x, p.top + GAP, PIPE_W, c.height); }
+    ctx.fillStyle = '#facc15'; ctx.beginPath(); ctx.arc(80, bird.y, 10, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#fff'; ctx.font = 'bold 24px sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText(score, c.width / 2, 36);
+    ctx.font = '16px sans-serif';
+    if (state === 'ready') ctx.fillText('คลิก / Space เพื่อเริ่ม', c.width / 2, c.height / 2 + 40);
+    if (state === 'over') ctx.fillText(`Game Over — สูงสุด ${best} · คลิกเพื่อเล่นใหม่`, c.width / 2, c.height / 2);
+  }
+  addEventListener('keydown', (e) => { if (e.key === ' ' || e.key === 'ArrowUp') { e.preventDefault(); flap(); } });
+  c.addEventListener('pointerdown', flap);
+  reset();
+  (function loop() { update(); draw(); requestAnimationFrame(loop); })();
+</script>
+</body>
+</html>

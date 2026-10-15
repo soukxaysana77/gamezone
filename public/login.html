@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>เข้าสู่ระบบ - GameZone</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <header>
+    <a class="logo" href="/">GAME<span>ZONE</span></a>
+    <nav></nav>
+  </header>
+  <main>
+    <form class="box" id="form">
+      <div class="tabs">
+        <button type="button" class="btn" id="tab-login">เข้าสู่ระบบ</button>
+        <button type="button" class="btn secondary" id="tab-register">สมัครสมาชิก</button>
+      </div>
+      <label for="username">ชื่อผู้ใช้</label>
+      <input id="username" autocomplete="username" required>
+      <label for="password">รหัสผ่าน</label>
+      <input id="password" type="password" autocomplete="current-password" required>
+      <button class="btn" id="submit">เข้าสู่ระบบ</button>
+      <div class="error" id="error"></div>
+    </form>
+  </main>
+  <script src="/common.js"></script>
+  <script>
+    let mode = 'login';
+    const next = new URLSearchParams(location.search).get('next');
+    const safeNext = next && next.startsWith('/') && !next.startsWith('//') ? next : '/';
+
+    function setMode(m) {
+      mode = m;
+      document.getElementById('tab-login').className = 'btn' + (m === 'login' ? '' : ' secondary');
+      document.getElementById('tab-register').className = 'btn' + (m === 'register' ? '' : ' secondary');
+      document.getElementById('submit').textContent = m === 'login' ? 'เข้าสู่ระบบ' : 'สมัครสมาชิก';
+      document.getElementById('password').autocomplete = m === 'login' ? 'current-password' : 'new-password';
+      document.getElementById('error').textContent = '';
+    }
+    document.getElementById('tab-login').onclick = () => setMode('login');
+    document.getElementById('tab-register').onclick = () => setMode('register');
+
+    document.getElementById('form').onsubmit = async (e) => {
+      e.preventDefault();
+      try {
+        await api('/api/' + mode, {
+          username: document.getElementById('username').value.trim(),
+          password: document.getElementById('password').value,
+        });
+        location.href = safeNext;
+      } catch (err) {
+        document.getElementById('error').textContent = err.message;
+      }
+    };
+
+    renderHeader().then((user) => { if (user) location.href = safeNext; });
+  </script>
+</body>
+</html>

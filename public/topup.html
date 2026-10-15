@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>เติมเงิน - GameZone</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <header>
+    <a class="logo" href="/">GAME<span>ZONE</span></a>
+    <nav></nav>
+  </header>
+  <main>
+    <h2>💰 เติมเงินเพื่อซื้อเวลาเล่น</h2>
+    <div class="notice" id="mock-notice" hidden>
+      โหมดทดสอบ: การชำระเงินเป็นการจำลอง ไม่มีการตัดเงินจริง
+    </div>
+    <div class="grid" id="packages"></div>
+
+    <h2 style="margin-top:36px">📜 ประวัติการเติมเงิน</h2>
+    <table>
+      <thead><tr><th>วันที่</th><th>จำนวนเงิน</th><th>เวลาที่ได้</th><th>สถานะ</th><th></th></tr></thead>
+      <tbody id="orders"></tbody>
+    </table>
+  </main>
+
+  <div class="overlay" id="pay-overlay">
+    <div class="box">
+      <h2>ชำระเงิน</h2>
+      <p id="pay-text"></p>
+      <button class="btn" id="pay-confirm">ยืนยันการชำระเงิน (จำลอง)</button>
+      <button class="btn secondary" id="pay-cancel">ยกเลิก</button>
+      <div class="error" id="pay-error"></div>
+    </div>
+  </div>
+
+  <script src="/common.js"></script>
+  <script>
+    let currentOrder = null;
+    const overlay = document.getElementById('pay-overlay');
+
+    const STATUS = { paid: 'สำเร็จ', pending: 'รอชำระ', cancelled: 'ยกเลิกแล้ว' };
+
+    function openPay(orderId, amount, seconds) {
+      currentOrder = { orderId };
+      document.getElementById('pay-text').textContent = `เติมเวลา ${formatTime(seconds)} ราคา ${amount} บาท`;
+      document.getElementById('pay-error').textContent = '';
+      overlay.classList.add('show');
+    }
+
+    async function loadOrders() {
+      const orders = await api('/api/orders');
+      document.getElementById('orders').innerHTML = orders.map((o) => `
+        <tr>
+          <td>${new Date(o.created_at * 1000).toLocaleString('th-TH')}</td>
+          <td>${o.amount} บาท</td>
+          <td>${formatTime(o.seconds)}</td>
+          <td class="${o.status}">${STATUS[o.status] || o.status}</td>
+          <td>${o.status === 'pending' ? `
+            <button class="btn" data-pay="${o.id}" data-amount="${o.amount}" data-seconds="${o.seconds}">ชำระเงิน</button>
+            <button class="btn secondary" data-cancel="${o.id}">ยกเลิก</button>` : ''}</td>
+        </tr>`).join('') || '<tr><td colspan="5">ยังไม่มีรายการ</td></tr>';
+    }
+
+    document.getElementById('orders').onclick = async (e) => {
+      const b = e.target.closest('button');
+      if (!b) return;
+      if (b.dataset.pay) openPay(b.dataset.pay, b.dataset.amount, Number(b.dataset.seconds));
+      if (b.dataset.cancel) {
+        await api(`/api/topup/${b.dataset.cancel}/cancel`, {}).catch((err) => alert(err.message));
+        loadOrders();
+      }
+    };
+
+    (async () => {
+      const user = await renderHeader();
+      if (!requireLogin(user)) return;
+      const { packages, paymentMode } = await api('/api/packages');
+      document.getElementById('mock-notice').hidden = paymentMode !== 'mock';
+      const grid = document.getElementById('packages');
+      for (const p of packages) {
+        const card = document.createElement('div');
+        card.className = 'card pkg';
+        card.innerHTML = `<div class="time">${p.name}</div><div class="price">${p.price} ฿</div>`;
+        const btn = document.createElement('button');
+        btn.className = 'btn';
+        btn.textContent = 'ซื้อ';
+        btn.onclick = async () => {
+          const order = await api('/api/topup', { packageId: p.id });
+          openPay(order.orderId, p.price, p.seconds);
+          loadOrders();
+        };
+        card.appendChild(btn);
+        grid.appendChild(card);
+      }
+      loadOrders();
+    })();
+
+    document.getElementById('pay-cancel').onclick = () => overlay.classList.remove('show');
+    document.getElementById('pay-confirm').onclick = async () => {
+      try {
+        const r = await api(`/api/topup/${currentOrder.orderId}/mock-pay`, {});
+        setBalance(r.balance);
+        overlay.classList.remove('show');
+        loadOrders();
+      } catch (err) {
+        document.getElementById('pay-error').textContent = err.message;
+      }
+    };
+  </script>
+</body>
+</html>

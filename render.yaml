@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: gamezone
+    runtime: node
+    plan: free               # ข้อมูลใน data.db จะหายเมื่อ deploy ใหม่หรือรีสตาร์ท
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NODE_VERSION
+        value: "24"
+      - key: PAYMENT_MODE
+        value: mock

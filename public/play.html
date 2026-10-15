@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>เล่นเกม - GameZone</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <header>
+    <a class="logo" href="/">GAME<span>ZONE</span></a>
+    <nav></nav>
+  </header>
+  <main class="play-wrap">
+    <h2 id="title"></h2>
+    <div id="frame-holder"></div>
+    <a class="btn secondary" href="/" id="back">← กลับไปเลือกเกม</a>
+  </main>
+
+  <div class="overlay" id="expired">
+    <div class="box">
+      <h2>⏰ หมดเวลาเล่นแล้ว</h2>
+      <p id="expired-text">เติมเงินเพื่อเล่นต่อ</p>
+      <a class="btn" href="/topup.html">เติมเงิน</a>
+      <a class="btn secondary" href="/">กลับหน้าแรก</a>
+    </div>
+  </div>
+
+  <script src="/common.js"></script>
+  <script>
+    const HEARTBEAT_MS = 10000;
+    let sessionId = null;
+    let balance = 0;
+    let lastSync = 0;
+    let heartbeatTimer, tickTimer;
+
+    function showExpired(text) {
+      clearInterval(heartbeatTimer);
+      clearInterval(tickTimer);
+      sessionId = null;
+      document.getElementById('frame-holder').innerHTML = '';
+      if (text) document.getElementById('expired-text').textContent = text;
+      setBalance(0);
+      document.getElementById('expired').classList.add('show');
+    }
+
+    async function heartbeat() {
+      try {
+        const r = await api('/api/play/heartbeat', { sessionId });
+        balance = r.balance;
+        lastSync = Date.now();
+        if (r.ended) showExpired(balance > 0 ? 'เซสชันการเล่นสิ้นสุดแล้ว (อาจเปิดเกมอื่นอยู่)' : null);
+      } catch (err) {
+        if (err.status === 410 || err.status === 401) showExpired('เซสชันการเล่นสิ้นสุดแล้ว (อาจเปิดเกมอื่นอยู่)');
+      }
+    }
+
+    // นับถอยหลังบนจอระหว่างรอ heartbeat (ยอดจริงอยู่ที่เซิร์ฟเวอร์)
+    function tick() {
+      const shown = balance - (Date.now() - lastSync) / 1000;
+      setBalance(shown);
+      if (shown <= 0) heartbeat();
+    }
+
+    (async () => {
+      const user = await renderHeader();
+      if (!requireLogin(user)) return;
+      const gameId = new URLSearchParams(location.search).get('game');
+      const game = (await api('/api/games')).find((g) => g.id === gameId);
+      if (!game) { location.href = '/'; return; }
+      document.getElementById('title').textContent = `${game.icon} ${game.title}`;
+      document.title = `${game.title} - GameZone`;
+
+      try {
+        const r = await api('/api/play/start', { gameId });
+        sessionId = r.sessionId;
+        balance = r.balance;
+        lastSync = Date.now();
+      } catch (err) {
+        showExpired(err.status === 402 ? null : err.message);
+        return;
+      }
+
+      const iframe = document.createElement('iframe');
+      iframe.src = `/games/${gameId}/index.html`;
+      document.getElementById('frame-holder').appendChild(iframe);
+      iframe.focus();
+
+      heartbeatTimer = setInterval(heartbeat, HEARTBEAT_MS);
+      tickTimer = setInterval(tick, 1000);
+      tick();
+    })();
+
+    // หยุดนับเวลาเมื่อออกจากหน้านี้
+    window.addEventListener('pagehide', () => {
+      if (sessionId) {
+        navigator.sendBeacon('/api/play/stop', new Blob([JSON.stringify({ sessionId })], { type: 'application/json' }));
+      }
+    });
+  </script>
+</body>
+</html>
